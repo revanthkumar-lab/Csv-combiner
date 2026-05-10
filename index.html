@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Genesys CSV Combiner</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 32px;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 32px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 32px;
+    }
+    p {
+      color: #4b5563;
+      line-height: 1.6;
+    }
+    .drop-zone {
+      border: 3px dashed #3b82f6;
+      border-radius: 16px;
+      padding: 48px 24px;
+      text-align: center;
+      background: #eff6ff;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      margin: 24px 0;
+    }
+    .drop-zone.dragover {
+      background: #dbeafe;
+      transform: scale(1.01);
+    }
+    .drop-zone strong {
+      display: block;
+      font-size: 22px;
+      margin-bottom: 10px;
+      color: #1d4ed8;
+    }
+    input[type="file"] { display: none; }
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 22px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .primary {
+      background: #2563eb;
+      color: white;
+    }
+    .primary:hover { background: #1d4ed8; }
+    .secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+    .secondary:hover { background: #d1d5db; }
+    .primary:disabled {
+      background: #93c5fd;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+    .file-list {
+      margin-top: 16px;
+      max-height: 240px;
+      overflow: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .file-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+    }
+    .file-item:last-child { border-bottom: none; }
+    .progress {
+      width: 100%; height: 10px; background: #e5e7eb;
+      border-radius: 999px; overflow: hidden; margin-top: 12px;
+      display: none;
+    }
+    .progress-bar {
+      height: 100%; width: 0%; background: #2563eb;
+      transition: width 0.2s;
+    }
+    .footer {
+      margin-top: 24px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Genesys CSV Combiner</h1>
+    <p>
+      Upload multiple Genesys CSV files (drag and drop or choose files), then click
+      <strong>Combine & Export to Excel</strong>. All files will be merged into one worksheet named
+      <strong>Combined_Data</strong> with an additional <strong>Source_File</strong> column.
+    </p>
+
+    <div id="dropZone" class="drop-zone">
+      <strong>Drag & Drop CSV Files Here</strong>
+      or click to choose files
+      <input id="fileInput" type="file" accept=".csv" multiple />
+    </div>
+
+    <div class="controls">
+      <button id="combineBtn" class="primary" disabled>Combine & Export to Excel</button>
+      <button id="clearBtn" class="secondary">Clear Files</button>
+    </div>
+
+    <div id="status" class="status">No files selected.</div>
+    <div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
+    <div id="fileList" class="file-list" style="display:none"></div>
+
+    <div class="footer">
+      Output file: <strong>Combined_Genesys_Data.xlsx</strong>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const combineBtn = document.getElementById('combineBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const status = document.getElementById('status');
+    const fileList = document.getElementById('fileList');
+    const progress = document.getElementById('progress');
+    const progressBar = document.getElementById('progressBar');
+
+    let selectedFiles = [];
+
+    function updateUI() {
+      combineBtn.disabled = selectedFiles.length === 0;
+      status.textContent = selectedFiles.length
+        ? `${selectedFiles.length} file(s) selected.`
+        : 'No files selected.';
+
+      if (selectedFiles.length) {
+        fileList.style.display = 'block';
+        fileList.innerHTML = selectedFiles
+          .map(file => `<div class="file-item">${file.name}</div>`)
+          .join('');
+      } else {
+        fileList.style.display = 'none';
+        fileList.innerHTML = '';
+      }
+    }
+
+    function addFiles(files) {
+      const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+      const existing = new Set(selectedFiles.map(f => f.name + '_' + f.size));
+
+      csvFiles.forEach(file => {
+        const key = file.name + '_' + file.size;
+        if (!existing.has(key)) {
+          selectedFiles.push(file);
+        }
+      });
+
+      updateUI();
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', e => {
+      addFiles(e.target.files);
+      fileInput.value = '';
+    });
+
+    ['dragenter', 'dragover'].forEach(event => {
+      dropZone.addEventListener(event, e => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(event => {
+      dropZone.addEventListener(event, e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+      });
+    });
+
+    dropZone.addEventListener('drop', e => {
+      addFiles(e.dataTransfer.files);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      selectedFiles = [];
+      progress.style.display = 'none';
+      progressBar.style.width = '0%';
+      updateUI();
+    });
+
+    function readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
+    }
+
+    combineBtn.addEventListener('click', async () => {
+      if (!selectedFiles.length) return;
+
+      combineBtn.disabled = true;
+      progress.style.display = 'block';
+      progressBar.style.width = '0%';
+      status.textContent = 'Processing files...';
+
+      const combined = [];
+      let masterHeader = null;
+
+      try {
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          const text = await readFileAsText(file);
+          const wb = XLSX.read(text, { type: 'string' }); 
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }); 
+
+          if (data.length === 0) continue;
+
+          const header = data[0];
+
+          if (!masterHeader) {
+            masterHeader = [...header, 'Source_File']; 
+            combined.push(masterHeader);
+          }
+
+          for (let r = 1; r < data.length; r++) {
+            if (data[r].every(cell => cell === '')) continue;
+            const row = [...data[r]];
+            while (row.length < header.length) row.push('');
+            row.push(file.name);
+            combined.push(row);
+          }
+
+          const pct = Math.round(((i + 1) / selectedFiles.length) * 100);
+          progressBar.style.width = pct + '%';
+          status.textContent = `Processing ${i + 1} of ${selectedFiles.length} files...`;
+        }
+
+        if (!combined.length) throw new Error('No valid data found in the selected files.');
+
+        const outWb = XLSX.utils.book_new(); 
+        const outWs = XLSX.utils.aoa_to_sheet(combined);
+
+        // Auto filter
+        outWs['!autofilter'] = {
+          ref: XLSX.utils.encode_range({
+            s: { r: 0, c: 0 },
+            e: { r: combined.length - 1, c: combined[0].length - 1 }
+          })
+        };
+
+        XLSX.utils.book_append_sheet(outWb, outWs, 'Combined_Data');
+        XLSX.writeFile(outWb, 'Combined_Genesys_Data.xlsx');
+
+        status.textContent = `Success! ${selectedFiles.length} files combined and exported.`;
+      } catch (err) {
+        status.textContent = 'Error: ' + err.message;
+        alert('Error: ' + err.message);
+      } finally {
+        combineBtn.disabled = selectedFiles.length === 0;
+      }
+    });
+
+    updateUI(); 
+  </script>
+</body>
+</html>
