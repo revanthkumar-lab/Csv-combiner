@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Genesys CSV Combiner</title>
+  <title> CSV Combiner</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -120,9 +120,9 @@
 </head>
 <body>
   <div class="container">
-    <h1>Genesys CSV Combiner</h1>
+    <h1> CSV Combiner</h1>
     <p>
-      Upload multiple Genesys CSV files (drag and drop or choose files), then click
+      Upload multiple  CSV files (drag and drop or choose files), then click
       <strong>Combine & Export to Excel</strong>. All files will be merged into one worksheet named
       <strong>Combined_Data</strong> with an additional <strong>Source_File</strong> column.
     </p>
@@ -143,7 +143,7 @@
     <div id="fileList" class="file-list" style="display:none"></div>
 
     <div class="footer">
-      Output file: <strong>Combined_Genesys_Data.xlsx</strong>
+      Output file: <strong>Combined_Data.xlsx</strong>
     </div>
   </div>
 
@@ -286,7 +286,7 @@
         };
 
         XLSX.utils.book_append_sheet(outWb, outWs, 'Combined_Data');
-        XLSX.writeFile(outWb, 'Combined_Genesys_Data.xlsx');
+        XLSX.writeFile(outWb, 'Combined_csv_Data.xlsx');
 
         status.textContent = `Success! ${selectedFiles.length} files combined and exported.`;
       } catch (err) {
